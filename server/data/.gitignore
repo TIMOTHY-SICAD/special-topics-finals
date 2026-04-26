@@ -1,0 +1,9 @@
+# Ignore all files in data directory
+# The GTSRB dataset is large and should not be committed
+
+# Ignore everything in data/
+*
+
+# But keep the directory structure
+# (add a .gitkeep to preserve empty directories if needed)
+!.gitignore
