@@ -2,6 +2,35 @@
 
 FastAPI-based backend for CNN traffic sign classification.
 
+## Model Performance
+
+The CNN model has been trained on the GTSRB (German Traffic Sign Recognition Benchmark) dataset with **43 traffic sign classes**.
+
+### Evaluation Results
+
+| Metric | Value |
+|--------|-------|
+| **Accuracy** | 96.31% |
+| **Precision** | 96.96% |
+| **Recall** | 96.31% |
+| **F1-Score** | 96.26% |
+
+**Most Confused Class Pairs:**
+- General Danger → Traffic Signals: 17 misclassifications
+- Curve Left → Double Curve: 17 misclassifications
+- Speed Limit 70 → Speed Limit 30: 8 misclassifications
+
+**Worst Performing Classes:**
+- Curve Left: 63.04% accuracy (F1=0.75)
+- General Danger: 63.04% accuracy (F1=0.77)
+- Double Curve: 91.30% accuracy (F1=0.79)
+
+Results are saved in `server/results/`:
+- `evaluation_results.json` - Full metrics in JSON format
+- `confusion_matrix.png` - Confusion matrix visualization
+- `per_class_accuracy.png` - Per-class accuracy chart
+- `error_analysis.txt` - Detailed error analysis report
+
 ## Setup
 
 1. **Install dependencies:**

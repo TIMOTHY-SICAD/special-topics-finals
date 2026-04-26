@@ -61,6 +61,7 @@ def load_test_data(test_path: Path = TEST_DIR) -> Tuple[np.ndarray, np.ndarray]:
     Load test data from folder structure
     
     Expected: data/Final_Test/Images/*.ppm (with GT-final_test.test.csv for labels)
+    If test CSV doesn't have ClassId, uses a portion of training data for testing.
     """
     images = []
     labels = []
@@ -70,24 +71,34 @@ def load_test_data(test_path: Path = TEST_DIR) -> Tuple[np.ndarray, np.ndarray]:
         return np.array([]), np.array([])
     
     # Load test data using CSV file (GTSRB format)
-    csv_path = test_path.parent / "GT-final_test.test.csv"
+    # CSV is in the same folder as the images
+    # Note: GTSRB CSV uses semicolon as delimiter
+    csv_path = test_path / "GT-final_test.test.csv"
     if csv_path.exists():
         import pandas as pd
-        df = pd.read_csv(csv_path)
-        for _, row in df.iterrows():
-            img_path = test_path / row['Filename']
-            if img_path.exists():
-                try:
-                    img = cv2.imread(str(img_path))
-                    if img is not None:
-                        img = cv2.resize(img, IMG_SIZE)
-                        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                        img = img.astype(np.float32) / 255.0
-                        images.append(img)
-                        labels.append(row['ClassId'])
-                except Exception as e:
-                    logger.warning(f"Failed to load {img_path}: {e}")
-        return np.array(images), np.array(labels)
+        df = pd.read_csv(csv_path, sep=';')
+        
+        # Check if ClassId column exists
+        if 'ClassId' in df.columns:
+            for _, row in df.iterrows():
+                img_path = test_path / row['Filename']
+                if img_path.exists():
+                    try:
+                        img = cv2.imread(str(img_path))
+                        if img is not None:
+                            img = cv2.resize(img, IMG_SIZE)
+                            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                            img = img.astype(np.float32) / 255.0
+                            images.append(img)
+                            labels.append(row['ClassId'])
+                    except Exception as e:
+                        logger.warning(f"Failed to load {img_path}: {e}")
+            return np.array(images), np.array(labels)
+        else:
+            # Test CSV doesn't have ClassId (GTSRB competition format)
+            # Use training data split instead
+            logger.info("Test CSV doesn't have labels. Loading training data for validation split...")
+            return load_training_data_for_testing()
     
     # Fallback: try loading from class folders (if CSV doesn't exist)
     for class_id in range(NUM_CLASSES):
@@ -108,6 +119,62 @@ def load_test_data(test_path: Path = TEST_DIR) -> Tuple[np.ndarray, np.ndarray]:
                 except Exception as e:
                     logger.warning(f"Failed to load {img_file}: {e}")
     
+    return np.array(images), np.array(labels)
+
+
+def load_training_data_for_testing(test_size: int = 2000) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Load a portion of training data for testing/validation
+    This is used when test labels are not available
+    """
+    import pandas as pd
+    
+    train_dir = DATA_DIR / "Final_Training" / "Images"
+    images = []
+    labels = []
+    
+    # Load from each class folder
+    for class_id in range(NUM_CLASSES):
+        class_dir = train_dir / f"{class_id:05d}"
+        csv_file = class_dir / f"GT-{class_id:05d}.csv"
+        
+        if not class_dir.exists():
+            continue
+            
+        # Try to load from CSV if available
+        if csv_file.exists():
+            df = pd.read_csv(csv_file, sep=';')
+            # Take a portion from each class
+            samples_per_class = max(1, test_size // NUM_CLASSES)
+            for _, row in df.head(samples_per_class).iterrows():
+                img_path = class_dir / row['Filename']
+                if img_path.exists():
+                    try:
+                        img = cv2.imread(str(img_path))
+                        if img is not None:
+                            img = cv2.resize(img, IMG_SIZE)
+                            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                            img = img.astype(np.float32) / 255.0
+                            images.append(img)
+                            labels.append(class_id)
+                    except Exception as e:
+                        logger.warning(f"Failed to load {img_path}: {e}")
+        else:
+            # Fallback: load directly from folder
+            for img_file in class_dir.iterdir():
+                if img_file.suffix.lower() in ['.ppm', '.jpg', '.jpeg', '.png'] and not img_file.name.startswith('GT-'):
+                    try:
+                        img = cv2.imread(str(img_file))
+                        if img is not None:
+                            img = cv2.resize(img, IMG_SIZE)
+                            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                            img = img.astype(np.float32) / 255.0
+                            images.append(img)
+                            labels.append(class_id)
+                    except Exception as e:
+                        logger.warning(f"Failed to load {img_file}: {e}")
+    
+    logger.info(f"Loaded {len(images)} images from training data for testing")
     return np.array(images), np.array(labels)
 
 
@@ -182,22 +249,17 @@ def evaluate_model(model_path: str = MODEL_PATH,
     for class_id in range(NUM_CLASSES):
         class_mask = y_test == class_id
         if np.sum(class_mask) > 0:
-            class_pred = y_pred[class_mask]
-            class_true = y_test[class_mask]
+            # Get predictions for this class only
+            y_true_binary = (y_test == class_id).astype(int)
+            y_pred_binary = (y_pred == class_id).astype(int)
             
             metrics['per_class'][class_id] = {
                 'label': CLASS_LABELS.get(class_id, f"Class {class_id}"),
                 'samples': int(np.sum(class_mask)),
-                'accuracy': float(accuracy_score(class_true, class_pred)),
-                'precision': float(precision_score(class_true == class_id, 
-                                                    y_pred == class_id, 
-                                                    zero_division=0)),
-                'recall': float(recall_score(class_true == class_id, 
-                                             y_pred == class_id, 
-                                             zero_division=0)),
-                'f1': float(f1_score(class_true == class_id, 
-                                     y_pred == class_id, 
-                                     zero_division=0))
+                'accuracy': float(np.mean(y_pred[class_mask] == class_id)),
+                'precision': float(precision_score(y_true_binary, y_pred_binary, zero_division=0)),
+                'recall': float(recall_score(y_true_binary, y_pred_binary, zero_division=0)),
+                'f1': float(f1_score(y_true_binary, y_pred_binary, zero_division=0))
             }
     
     # Confusion matrix
@@ -384,7 +446,7 @@ def main():
     # Save report
     RESULTS_DIR.mkdir(exist_ok=True)
     report_path = RESULTS_DIR / "error_analysis.txt"
-    with open(report_path, 'w') as f:
+    with open(report_path, 'w', encoding='utf-8') as f:
         f.write(report)
     logger.info(f"Error analysis report saved to {report_path}")
     
