@@ -1,0 +1,12 @@
+# Evaluation results and artifacts
+*.json
+*.png
+*.txt
+*.csv
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.temp
