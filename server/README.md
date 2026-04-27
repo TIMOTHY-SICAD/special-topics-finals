@@ -1,8 +1,8 @@
 # Traffic Sign Recognition - Backend
 
-FastAPI-based backend for CNN traffic sign classification.
+FastAPI-based backend for CNN traffic sign classification with support for both German (GTSRB) and Philippine road signs.
 
-## Model Performance
+## Model Performance (GTSRB)
 
 The CNN model has been trained on the GTSRB (German Traffic Sign Recognition Benchmark) dataset with **43 traffic sign classes**.
 
@@ -30,6 +30,58 @@ Results are saved in `server/results/`:
 - `confusion_matrix.png` - Confusion matrix visualization
 - `per_class_accuracy.png` - Per-class accuracy chart
 - `error_analysis.txt` - Detailed error analysis report
+
+## Philippine Road Signs Integration
+
+### Phase 1: Data Collection (In Progress)
+
+Download Philippine road signs from Wikimedia Commons using `gallery-dl`:
+
+```powershell
+# Install dependencies first
+pip install -r requirements.txt
+
+# Run the download script
+python download_philippine_signs.py
+```
+
+This will:
+- Download images from: https://commons.wikimedia.org/wiki/Category:Road_signs_in_the_Philippines
+- Filter for common formats: JPEG, PNG, GIF, WebP
+- Skip SVG files (would require rasterization)
+- Save to: `server/data/Philippine_Signs/`
+
+### Phase 2: Format Compatibility (Completed)
+
+Updated preprocessing pipeline to handle multiple image formats:
+- **Supported formats**: PPM, JPEG, PNG, GIF, WebP, BMP, TIFF
+- Uses OpenCV as primary loader, PIL as fallback
+- Handles RGBA images with transparency
+- Gracefully skips problematic files
+
+Usage:
+```python
+from utils.preprocessing import load_and_preprocess_image, batch_preprocess_images
+
+# Load single image (supports all formats)
+image = load_and_preprocess_image("path/to/image.jpg")
+
+# Batch load with error handling
+images = batch_preprocess_images(image_paths)
+```
+
+### Phase 3: Cross-Dataset Evaluation (Planned)
+
+Test GTSRB model on Philippine signs to evaluate transfer learning:
+```python
+from utils.philippine_signs import load_philippine_signs_dataset
+
+# Load Philippine signs
+images, file_paths = load_philippine_signs_dataset()
+
+# Split into train/test
+(train_imgs, train_paths), (test_imgs, test_paths) = split_dataset(images, file_paths)
+```
 
 ## Setup
 

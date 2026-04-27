@@ -241,7 +241,9 @@ def preprocess_for_inference(image: np.ndarray) -> np.ndarray:
 
 def load_and_preprocess_image(image_path: str, for_training: bool = False) -> np.ndarray:
     """
-    Load image from file and preprocess it
+    Load image from file and preprocess it.
+    
+    Supports multiple formats: PPM, JPEG, PNG, GIF, WebP, BMP, TIFF
     
     Args:
         image_path: Path to image file
@@ -249,9 +251,39 @@ def load_and_preprocess_image(image_path: str, for_training: bool = False) -> np
     
     Returns:
         Preprocessed image
+    
+    Raises:
+        ValueError: If image cannot be loaded
     """
-    # Load image
+    import os
+    
+    image_path = str(image_path)
+    
+    # Load image based on file extension
+    file_ext = os.path.splitext(image_path)[1].lower()
+    
+    # Try OpenCV first (handles most formats)
     image = cv2.imread(image_path)
+    
+    # If OpenCV fails, try PIL for additional format support
+    if image is None:
+        try:
+            from PIL import Image
+            img_pil = Image.open(image_path)
+            # Convert RGBA to RGB if necessary
+            if img_pil.mode == 'RGBA':
+                # Create white background
+                background = Image.new('RGB', img_pil.size, (255, 255, 255))
+                background.paste(img_pil, mask=img_pil.split()[3])
+                img_pil = background
+            elif img_pil.mode != 'RGB':
+                img_pil = img_pil.convert('RGB')
+            
+            # Convert PIL Image to numpy array (PIL uses RGB, OpenCV uses BGR)
+            image = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+        except Exception as e:
+            raise ValueError(f"Failed to load image from {image_path}: {e}")
+    
     if image is None:
         raise ValueError(f"Failed to load image from {image_path}")
     
@@ -263,24 +295,33 @@ def load_and_preprocess_image(image_path: str, for_training: bool = False) -> np
 
 def batch_preprocess_images(image_paths: list, for_training: bool = False) -> np.ndarray:
     """
-    Preprocess multiple images
+    Preprocess multiple images with format compatibility.
+    
+    Skips images that cannot be loaded and logs warnings.
+    Supports: PPM, JPEG, PNG, GIF, WebP, BMP, TIFF
     
     Args:
         image_paths: List of image file paths
         for_training: Whether this is for training
     
     Returns:
-        Numpy array of preprocessed images
+        Numpy array of preprocessed images (may be smaller than input if some failed)
     """
     images = []
+    failed_count = 0
+    
     for path in image_paths:
         try:
             img = load_and_preprocess_image(path, for_training)
             images.append(img)
         except Exception as e:
+            failed_count += 1
             logger.warning(f"Failed to preprocess {path}: {e}")
     
-    return np.array(images)
+    if failed_count > 0:
+        logger.info(f"Successfully processed {len(images)} images, {failed_count} failed")
+    
+    return np.array(images) if images else np.array([])
 
 
 # Class labels for GTSRB dataset

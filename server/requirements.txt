@@ -9,3 +9,4 @@ scikit-learn
 pandas
 matplotlib
 tensorboard
+gallery-dl
