@@ -35,4 +35,3 @@ __pycache__/
 
 # Data
 server/model/data/
-server/model/traffic_sign_v2/
