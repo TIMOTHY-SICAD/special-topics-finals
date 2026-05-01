@@ -10,6 +10,6 @@ file_path = base_dir / 'server' / 'model' / 'data' / 'Traffic and Road Signs.yol
 model = YOLO('yolov8n.pt')
 model.train(data=str(file_path), epochs=30, imgsz=640, name='traffic_sign_v2')
 
-# Show results
-result = model(str(base_dir / 'server' / 'model' / 'data' / 'sign.jpg'))
-result[0].show()
+# # Show results
+# result = model(str(base_dir / 'server' / 'model' / 'data' / 'sign.jpg'))
+# result[0].show()
