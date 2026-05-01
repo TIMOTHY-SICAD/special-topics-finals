@@ -3,6 +3,7 @@ from fastapi import FastAPI, UploadFile, File, BackgroundTasks
 from fastapi.responses import StreamingResponse, FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from ultralytics import YOLO
+from ultralytics.utils.plotting import Annotator, colors
 from PIL import Image
 import cv2
 import io
@@ -65,7 +66,7 @@ async def predict(file: UploadFile = File(...), background_tasks: BackgroundTask
             contents = await file.read()
             image = Image.open(io.BytesIO(contents)).convert("RGB")
 
-            results = model(image)
+            results = model(image, imgsz=1088, conf=0.6)
             annotated = results[0].plot()
 
             annotated_img = Image.fromarray(annotated[..., ::-1])
@@ -109,7 +110,6 @@ async def predict(file: UploadFile = File(...), background_tasks: BackgroundTask
             width = width // 2 * 2
             height = height // 2 * 2
 
-            # More compatible codec
             fourcc = cv2.VideoWriter_fourcc(*"MJPG")
             out = cv2.VideoWriter(temp_raw.name, fourcc, fps, (width, height))
 
@@ -117,7 +117,7 @@ async def predict(file: UploadFile = File(...), background_tasks: BackgroundTask
                 raise RuntimeError("Failed to open VideoWriter")
 
             frame_count = 0
-            annotated = None
+            last_results = None  # store last YOLO detections
 
             while cap.isOpened():
                 ret, frame = cap.read()
@@ -126,22 +126,45 @@ async def predict(file: UploadFile = File(...), background_tasks: BackgroundTask
 
                 frame = cv2.resize(frame, (width, height))
 
-                if frame_count % 2 == 0:
-                    results = model(frame)
-                    annotated = results[0].plot()
+                # 🔹 Run inference every 5 frames
+                if frame_count % 5 == 0:
+                    results = model(frame, imgsz=1088, conf=0.6)
+                    last_results = results[0]
 
-                out.write(annotated if annotated is not None else frame)
+                annotated = frame.copy()
+
+                # 🔹 Use Ultralytics Annotator for drawing
+                if last_results is not None and last_results.boxes is not None:
+                    annotator = Annotator(annotated, line_width=2, example=str(model.names))
+
+                    boxes = last_results.boxes
+                    names = model.names
+
+                    for box in boxes:
+                        xyxy = box.xyxy[0].tolist()
+                        cls = int(box.cls[0])
+                        conf = float(box.conf[0])
+
+                        label = f"{names[cls]} {conf:.2f}"
+
+                        color = colors(cls, True)
+
+                        annotator.box_label(xyxy, label, color=color)
+
+                    annotated = annotator.result()
+
+                out.write(annotated)
                 frame_count += 1
 
             cap.release()
             out.release()
 
-            # Check raw video exists
+            # Validate raw video
             if not os.path.exists(temp_raw.name) or os.path.getsize(temp_raw.name) == 0:
                 raise RuntimeError("Raw video file not created")
 
-            # FFmpeg conversion
-            ffmpeg_path = r"C:\ffmpeg\bin\ffmpeg.exe"  # 👈 adjust if needed
+            # 🔹 FFmpeg conversion
+            ffmpeg_path = r"C:\ffmpeg\bin\ffmpeg.exe"  # adjust if needed
 
             ffmpeg_cmd = [
                 ffmpeg_path,
@@ -193,6 +216,9 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     print("WebSocket connected")
 
+    frame_count = 0
+    last_results = None  # store last detections
+
     try:
         while True:
             # Receive base64 image
@@ -203,9 +229,37 @@ async def websocket_endpoint(websocket: WebSocket):
             np_arr = np.frombuffer(image_data, np.uint8)
             frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
 
-            # Run YOLO
-            results = model(frame)
-            annotated = results[0].plot()
+            # 🔹 Run inference every 5 frames
+            if frame_count % 5 == 0:
+                results = model(frame, imgsz=1088, conf=0.6)
+                last_results = results[0]
+
+            annotated = frame.copy()
+
+            # 🔹 Draw using Ultralytics Annotator
+            if last_results is not None and last_results.boxes is not None:
+                annotator = Annotator(
+                    annotated,
+                    line_width=None,           # auto scale like YOLO
+                    example=str(model.names)  # helps match styling
+                )
+
+                boxes = last_results.boxes
+                names = model.names
+
+                for box in boxes:
+                    xyxy = box.xyxy[0].tolist()
+                    cls = int(box.cls[0])
+                    conf = float(box.conf[0])
+
+                    label = f"{names[cls]} {conf:.2f}"
+
+                    # ✅ YOLO-style color
+                    color = colors(cls, True)
+
+                    annotator.box_label(xyxy, label, color=color)
+
+                annotated = annotator.result()
 
             # Encode back to JPEG
             _, buffer = cv2.imencode(".jpg", annotated)
@@ -213,6 +267,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
             # Send back
             await websocket.send_text(f"data:image/jpeg;base64,{encoded}")
+
+            frame_count += 1
 
     except WebSocketDisconnect:
         print("WebSocket disconnected")

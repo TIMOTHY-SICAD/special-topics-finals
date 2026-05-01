@@ -5,38 +5,28 @@ function App() {
   const [mode, setMode] = useState("upload"); // "upload" | "webcam"
 
   return (
-    <div className="app-container">
-      {/* <header className="page-header">
-        <div className="title-header">
-          <h1>Traffic Sign Detection</h1>
-        </div>
-        <p>
-          Upload an image or video, or use your webcam for live traffic sign
-          detection. The app shows the original media and the processed result.
-        </p>
-      </header> */}
+    <>
+      <header className="navbar">
+        <nav className="mode-tabs">
+          <button
+            className={mode === "upload" ? "nav-link active" : "nav-link"}
+            onClick={() => setMode("upload")}
+            aria-label="Upload mode"
+          >
+            File
+          </button>
+          <button
+            className={mode === "webcam" ? "nav-link active" : "nav-link"}
+            onClick={() => setMode("webcam")}
+            aria-label="Webcam mode"
+          >
+            Webcam
+          </button>
+        </nav>
+      </header>
 
-      <div className="mode-tabs">
-        <button
-          className={mode === "upload" ? "mode-button active" : "mode-button"}
-          onClick={() => setMode("upload")}
-          aria-label="Upload mode"
-        >
-          Upload
-        </button>
-        <button
-          className={mode === "webcam" ? "mode-button active" : "mode-button"}
-          onClick={() => setMode("webcam")}
-          aria-label="Webcam mode"
-        >
-          Webcam
-        </button>
-      </div>
-
-      <section className="section-card">
-        {mode === "upload" ? <UploadMode /> : <WebcamMode />}
-      </section>
-    </div>
+      {mode === "upload" ? <UploadMode /> : <WebcamMode />}
+    </>
   );
 }
 
@@ -108,12 +98,12 @@ function UploadMode() {
   };
 
   return (
-    <>
+    <div className="mode-content">
       {/* <h2>Upload Image / Video</h2> */}
 
       <div className="field-row">
         <label className="file-label">
-          Choose File
+          Upload File
           <input
             className="file-input"
             type="file"
@@ -148,7 +138,7 @@ function UploadMode() {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -251,7 +241,7 @@ function WebcamMode() {
   };
 
   return (
-    <>
+    <div className="mode-content">
       {/* <h2>Live Webcam Detection</h2> */}
 
       <div className="button-row">
@@ -280,6 +270,6 @@ function WebcamMode() {
       </div>
 
       <canvas ref={canvasRef} style={{ display: "none" }} />
-    </>
+    </div>
   );
 }

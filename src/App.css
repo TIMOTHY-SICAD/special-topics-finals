@@ -183,52 +183,47 @@
   }
 }
 
-.app-container {
-  padding: 28px 24px 36px;
-  max-width: 1120px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.navbar {
+  background: var(--code-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
-.page-header {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  margin-bottom: 28px;
-  padding-bottom: 18px;
-}
-
-.title-header {
-  margin-bottom: 16px;
-}
-
-.page-header h1 {
-  margin: 0;
-  font-size: clamp(2.4rem, 4vw, 3.75rem);
-  letter-spacing: -1px;
-}
-
-.page-header p {
-  margin: 0;
-  max-width: 720px;
-  color: var(--text);
-  line-height: 1.7;
-  text-align: center;
+.mode-content {
+  padding: 20px;
 }
 
 .mode-tabs {
   display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
+  justify-content: flex-start;
   gap: 12px;
-  margin-bottom: 24px;
 }
 
-.mode-button,
+.nav-link {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--text-h);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 1rem;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  background: var(--code-bg);
+}
+
+.nav-link.active {
+  background: var(--accent);
+  color: white;
+}
+
 .action-button {
   appearance: none;
   border: 1px solid var(--border);
@@ -243,36 +238,9 @@
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.mode-button:hover,
 .action-button:hover {
   transform: translateY(-1px);
   border-color: var(--accent-border);
-}
-
-.mode-button.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  box-shadow: 0 14px 30px rgba(170, 59, 255, 0.14);
-}
-
-.section-card {
-  background: rgba(255, 255, 255, 0.9);
-  background: var(--surface, rgba(255, 255, 255, 0.9));
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 24px;
-  box-shadow: var(--shadow);
-  margin-bottom: 24px;
-  text-align: left;
-  min-height: 560px;
-  min-width: min(760px, 100%);
-}
-
-.section-card h2 {
-  margin-top: 0;
-  margin-bottom: 18px;
-  text-align: center;
 }
 
 .field-row {
@@ -347,12 +315,12 @@
 }
 
 @media (max-width: 600px) {
-  .app-container {
-    padding: 18px 16px 24px;
-  }
-
   .page-header h1 {
     font-size: 2.4rem;
+  }
+
+  .mode-content {
+    padding: 10px;
   }
 
   .mode-tabs,
@@ -360,7 +328,7 @@
     justify-content: stretch;
   }
 
-  .mode-button,
+  .nav-link,
   .action-button {
     width: 100%;
   }
